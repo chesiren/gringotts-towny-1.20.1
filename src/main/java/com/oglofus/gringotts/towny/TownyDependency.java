@@ -96,8 +96,8 @@ public class TownyDependency implements Dependency, Listener {
         Bukkit.getPluginManager().registerEvents(this.townHolderProvider, this.gringotts);
         Bukkit.getPluginManager().registerEvents(this.nationHolderProvider, this.gringotts);
 
-        Gringotts.instance.registerAccountHolderProvider(TownAccountHolder.ACCOUNT_TYPE, this.townHolderProvider);
-        Gringotts.instance.registerAccountHolderProvider(NationAccountHolder.ACCOUNT_TYPE, this.nationHolderProvider);
+        Gringotts.instance.getAccountHolderFactory().registerAccountHolderProvider(TownAccountHolder.ACCOUNT_TYPE, this.townHolderProvider);
+        Gringotts.instance.getAccountHolderFactory().registerAccountHolderProvider(NationAccountHolder.ACCOUNT_TYPE, this.nationHolderProvider);
     }
 
     /**
