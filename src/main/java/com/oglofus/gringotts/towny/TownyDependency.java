@@ -15,11 +15,15 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.plugin.Plugin;
 import org.gestern.gringotts.AccountChest;
+import org.gestern.gringotts.AccountInventory;
 import org.gestern.gringotts.Gringotts;
+import org.gestern.gringotts.GringottsAccount;
 import org.gestern.gringotts.Permissions;
 import org.gestern.gringotts.Util;
 import org.gestern.gringotts.accountholder.AccountHolder;
@@ -317,6 +321,70 @@ public class TownyDependency implements Dependency, Listener {
             }
         }
         return null;
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                Resident resident = TownyUniverse.getInstance().getResident(player.getUniqueId());
+                if (resident == null) return;
+
+                // Warn about full town vaults
+                try {
+                    Town town = resident.getTown();
+                    if (canAccessTownVault(resident, town)) {
+                        AccountHolder holder = townHolderProvider.getAccountHolder(town);
+                        if (holder != null) {
+                            GringottsAccount account = gringotts.getAccounting().getAccount(holder);
+                            for (AccountChest chest : gringotts.getDao().retrieveChests(account)) {
+                                if (!chest.isChestLoaded()) continue;
+                                InventoryHolder inv = chest.chest();
+                                if (inv == null) continue;
+                                if (new AccountInventory(inv.getInventory()).isFull()) {
+                                    Location loc = chest.chestLocation();
+                                    if (loc == null) continue;
+                                    player.sendMessage(TownyLanguage.LANG.town_vault_full
+                                            .replace("%town", town.getName())
+                                            .replace("%world", loc.getWorld().getName())
+                                            .replace("%x", String.valueOf(loc.getBlockX()))
+                                            .replace("%y", String.valueOf(loc.getBlockY()))
+                                            .replace("%z", String.valueOf(loc.getBlockZ())));
+                                }
+                            }
+                        }
+                    }
+                } catch (NotRegisteredException ignored) {}
+
+                // Warn about full nation vaults
+                try {
+                    Nation nation = resident.getTown().getNation();
+                    if (canAccessNationVault(resident, nation)) {
+                        AccountHolder holder = nationHolderProvider.getAccountHolder(nation);
+                        if (holder != null) {
+                            GringottsAccount account = gringotts.getAccounting().getAccount(holder);
+                            for (AccountChest chest : gringotts.getDao().retrieveChests(account)) {
+                                if (!chest.isChestLoaded()) continue;
+                                InventoryHolder inv = chest.chest();
+                                if (inv == null) continue;
+                                if (new AccountInventory(inv.getInventory()).isFull()) {
+                                    Location loc = chest.chestLocation();
+                                    if (loc == null) continue;
+                                    player.sendMessage(TownyLanguage.LANG.nation_vault_full
+                                            .replace("%nation", nation.getName())
+                                            .replace("%world", loc.getWorld().getName())
+                                            .replace("%x", String.valueOf(loc.getBlockX()))
+                                            .replace("%y", String.valueOf(loc.getBlockY()))
+                                            .replace("%z", String.valueOf(loc.getBlockZ())));
+                                }
+                            }
+                        }
+                    }
+                } catch (NotRegisteredException ignored) {}
+            }
+        }.runTaskLater(gringotts, 20L);
     }
 
     @EventHandler
