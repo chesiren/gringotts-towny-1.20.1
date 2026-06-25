@@ -8,10 +8,15 @@ import java.util.List;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Tag;
+import org.bukkit.block.DoubleChest;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.plugin.Plugin;
 import org.gestern.gringotts.AccountChest;
 import org.gestern.gringotts.Gringotts;
@@ -28,7 +33,9 @@ import com.oglofus.gringotts.towny.town.TownHolderProvider;
 import com.palmergames.bukkit.towny.Towny;
 import com.palmergames.bukkit.towny.TownyAPI;
 import com.palmergames.bukkit.towny.TownyUniverse;
+import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
 import com.palmergames.bukkit.towny.object.Nation;
+import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
 import com.palmergames.bukkit.towny.object.metadata.IntegerDataField;
 
@@ -239,6 +246,77 @@ public class TownyDependency implements Dependency, Listener {
             event.setOwner(owner);
             event.setValid(true);
         }
+    }
+
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onVaultOpen(InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) return;
+        if (!Util.isValidInventory(event.getInventory().getType())) return;
+
+        AccountChest accountChest = getVaultChest(event.getInventory());
+        if (accountChest == null) return;
+
+        AccountHolder owner = accountChest.getAccount().owner;
+        if (!(owner instanceof TownAccountHolder) && !(owner instanceof NationAccountHolder)) return;
+
+        // Admin bypass
+        if (Permissions.CREATE_VAULT_ADMIN.isAllowed(player)) return;
+
+        Resident resident = TownyUniverse.getInstance().getResident(player.getUniqueId());
+
+        if (owner instanceof TownAccountHolder townOwner) {
+            if (!canAccessTownVault(resident, townOwner.getTown())) {
+                event.setCancelled(true);
+                player.sendMessage(TownyLanguage.LANG.noTownVaultAccess);
+            }
+        } else if (owner instanceof NationAccountHolder nationOwner) {
+            if (!canAccessNationVault(resident, nationOwner.getNation())) {
+                event.setCancelled(true);
+                player.sendMessage(TownyLanguage.LANG.noNationVaultAccess);
+            }
+        }
+    }
+
+    private boolean canAccessTownVault(Resident resident, Town town) {
+        if (resident == null) return false;
+        if (town.getMayor().equals(resident)) return true;
+        try {
+            return resident.getTown().equals(town) && resident.hasTownRank("assistant");
+        } catch (NotRegisteredException e) {
+            return false;
+        }
+    }
+
+    private boolean canAccessNationVault(Resident resident, Nation nation) {
+        if (resident == null) return false;
+        try {
+            if (nation.getCapital().getMayor().equals(resident)) return true;
+        } catch (NotRegisteredException e) { }
+        try {
+            return resident.getTown().getNation().equals(nation) && resident.hasNationRank("assistant");
+        } catch (NotRegisteredException e) {
+            return false;
+        }
+    }
+
+    private AccountChest getVaultChest(Inventory inventory) {
+        Location loc = inventory.getLocation();
+        if (loc == null) {
+            InventoryHolder holder = inventory.getHolder();
+            if (holder instanceof DoubleChest doubleChest) {
+                loc = ((org.bukkit.block.Chest) doubleChest.getLeftSide()).getLocation();
+            }
+        }
+        if (loc == null) return null;
+
+        final Location finalLoc = loc;
+        for (AccountChest chest : gringotts.getDao().retrieveChests()) {
+            if (!chest.isChestLoaded()) continue;
+            if (chest.matchesLocation(finalLoc)) {
+                return chest;
+            }
+        }
+        return null;
     }
 
     @EventHandler
