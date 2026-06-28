@@ -295,7 +295,7 @@ public class TownyDependency implements Dependency, Listener {
         if (resident == null) return false;
         try {
             if (nation.getCapital().getMayor().equals(resident)) return true;
-        } catch (NotRegisteredException e) { }
+        } catch (Exception e) { }
         try {
             return resident.getTown().getNation().equals(nation) && resident.hasNationRank("assistant");
         } catch (NotRegisteredException e) {
