@@ -396,7 +396,8 @@ public class TownyDependency implements Dependency, Listener {
 
         // The block itself is actually a sign
         for (AccountChest chest : chests) {
-            if (chest.sign.getBlock().getLocation().equals(blockLoc) || chest.chestLocation().equals(blockLoc)) {
+            Location chestLoc = chest.chestLocation();
+            if (chest.sign.getBlock().getLocation().equals(blockLoc) || (chestLoc != null && chestLoc.equals(blockLoc))) {
 
                 AccountHolder owner = chest.getAccount().owner;
 
